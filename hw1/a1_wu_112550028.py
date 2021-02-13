@@ -1,8 +1,8 @@
 #!/usr/bin/python3
-# NAME SBU_ID
+# Tim Wu SBUID: 112550028
 # CSE354, Spring 2021
 ##########################################################
-## a1_lastname_id.py
+## a1_wu_112550028.py
 ## Sentiment Classifier - lexicon-based,
 ##                        logistic regression based
 
@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn  #pytorch
 
 # Comment this line out if you wish to see results on the console
-sys.stdout = open('a1_lastname_id_OUTPUT.txt', 'w') # EDIT THIS
+#sys.stdout = open('a1_lastname_id_OUTPUT.txt', 'w') # EDIT THIS
 
 #########################################################
 ## Part 1. Read and tokenize data.
@@ -35,15 +35,11 @@ def loadData(filename, bin_thresh=3.5):
             pass
     return data
 
-wordRE = re.compile(r'', re.UNICODE) # COMPLETE THIS
+# \b[a-z0-9]+\'?[a-z]{,3}\b <- matches words and contractions with <= 3 letters after the '. Seems to break when there's more than 3 ie ha'mmmm = split into ha' and mmmm
+# [.!?,";]+ <- matches punctuation
+wordRE = re.compile(r'\b[a-z0-9\-]+\'?[a-z]{,3}\b-*|[.!?,";]+', re.UNICODE) # COMPLETE THIS
 def tokenize(text):
-    #1.1 IMPLEMENT
-    #takes in a single string
-    #Returns a list tokens from the string according to
-    #the restrictions provided in the instructions.
-    #Remember to lowercase.
-    pass
-
+    return wordRE.findall(text);
 
 
 #########################################################
