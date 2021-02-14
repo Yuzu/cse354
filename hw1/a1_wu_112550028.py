@@ -67,7 +67,20 @@ def lexicaScore(lexica, tokens):
     #Finds the relative frequeny (count of tokens in category / total tokens
     #return:
     #  a dictionary of frequencies per category (e.g. {'pos': 0.10, 'neg': 0.07} )
-    pass
+
+    relativeFreqs = {}
+    for category in lexica.keys():
+        relativeFreqs.setdefault(category, 0.0)
+        
+    for token in tokens:
+        for category in lexica.keys():
+            if token in lexica[category]:
+                relativeFreqs[category] = relativeFreqs[category] + 1
+    
+    for category in relativeFreqs.keys():
+        relativeFreqs[category] = relativeFreqs[category] / len(tokens)
+    
+    return relativeFreqs
 
 def posNegLexClassify(lexicaScores, posName='pos', negName='neg'):
     #DON'T EDIT EXCEPT thresh
@@ -76,7 +89,7 @@ def posNegLexClassify(lexicaScores, posName='pos', negName='neg'):
     #  posName, negName - category name for positive and negative category
     #                     (don't change)
 
-    thresh = 0.00 #2.2 IMPLEMENT (adjust this to improve classification)
+    thresh = 0.015 #2.2 IMPLEMENT (adjust this to improve classification)
     score = lexicaScores[posName] - lexicaScores[negName]
     return 1 if score >= thresh else 0
 
