@@ -105,8 +105,11 @@ def extractMultiHot(tokens, vocab):
     # vocab -- the vocabulary tokens to record in the multi hot
     #          (this is also as a list of strings)
     #Output: A single multi-hot encoding of length len(vocab)
-    pass
-
+    vector = [0] * len(vocab)
+    for token in tokens:
+        if token in vocab:
+            vector[vocab.index(token)] = 1
+    return vector
 
 def normalizedLogLoss(ypred, ytrue):
     ##3.2 IMPLEMENT
@@ -116,7 +119,15 @@ def normalizedLogLoss(ypred, ytrue):
     #  ytrue - a vector (torch 1-d tensor) of the true labels
     #Output:
     #  the logloss
-    pass
+
+    summation = 0
+    
+    # ypred = pair[0]
+    # ytrue = y, pair[1]
+    for values in list(zip(ypred, ytrue)):
+        summation += (values[1] * torch.log(values[0])) + (1 - values[1]) * torch.log(1 - values[0])
+    
+    return abs(summation * (-1/len(ypred)))
 
 ## The Logistic Regression Class (do not edit but worth studying)
 class LogReg(nn.Module):
