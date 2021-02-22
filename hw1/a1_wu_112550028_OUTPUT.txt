@@ -1,0 +1,87 @@
+
+LOADING DATA...
+DONE.
+2374 records.
+First 3 records:
+["i'm old, and so is my computer.  any advice that can help me maximize my computer perfomance is very welcome.  maximumpc has some good tips on computer parts, vendors, and usefull tests", 1]
+["there's nothing to say, but if you want a real men's magazine, this is it. they have great articles and stories, and i love the bits of knowledge that starts the know & tell section, and i love the last page, which has an interview with a celebrity. just get this magazine and forget all the other mature men's mags.", 1]
+["if you're the kind of man who looks at himself in a full length mirrror every morning, this is the magazine for you.\nif you think the car you drive defines you, the clothes you wear are the measure of your self-worth, the watch on your wrist tells the value of you as a person, and the woman you're seen with is a measure of your rank in society- you need this magazine.\nother men- who might value human relationships- may profitably give it a pass.", 0]
+
+TOKENIZING TEXT...
+DONE.
+First 3 records:
+[["i'm", 'old', ',', 'and', 'so', 'is', 'my', 'computer', '.', 'any', 'advice', 'that', 'can', 'help', 'me', 'maximize', 'my', 'computer', 'perfomance', 'is', 'very', 'welcome', '.', 'maximumpc', 'has', 'some', 'good', 'tips', 'on', 'computer', 'parts', ',', 'vendors', ',', 'and', 'usefull', 'tests'], 1]
+[["there's", 'nothing', 'to', 'say', ',', 'but', 'if', 'you', 'want', 'a', 'real', "men's", 'magazine', ',', 'this', 'is', 'it', '.', 'they', 'have', 'great', 'articles', 'and', 'stories', ',', 'and', 'i', 'love', 'the', 'bits', 'of', 'knowledge', 'that', 'starts', 'the', 'know', 'tell', 'section', ',', 'and', 'i', 'love', 'the', 'last', 'page', ',', 'which', 'has', 'an', 'interview', 'with', 'a', 'celebrity', '.', 'just', 'get', 'this', 'magazine', 'and', 'forget', 'all', 'the', 'other', 'mature', "men's", 'mags', '.'], 1]
+[['if', "you're", 'the', 'kind', 'of', 'man', 'who', 'looks', 'at', 'himself', 'in', 'a', 'full', 'length', 'mirrror', 'every', 'morning', ',', 'this', 'is', 'the', 'magazine', 'for', 'you', '.', 'if', 'you', 'think', 'the', 'car', 'you', 'drive', 'defines', 'you', ',', 'the', 'clothes', 'you', 'wear', 'are', 'the', 'measure', 'of', 'your', 'self-worth', ',', 'the', 'watch', 'on', 'your', 'wrist', 'tells', 'the', 'value', 'of', 'you', 'as', 'a', 'person', ',', 'and', 'the', 'woman', "you're", 'seen', 'with', 'is', 'a', 'measure', 'of', 'your', 'rank', 'in', 'society-', 'you', 'need', 'this', 'magazine', '.', 'other', 'men-', 'who', 'might', 'value', 'human', 'relationships-', 'may', 'profitably', 'give', 'it', 'a', 'pass', '.'], 0]
+
+SCORING BY LEXICON...
+DONE.
+First 20 lexicon predictions:
+  rating: 1,   lex pred: 1,   lex scores: {'pos': 0.02702702702702703, 'neg': 0.0, 'verbs': 0.13513513513513514}
+  rating: 1,   lex pred: 1,   lex scores: {'pos': 0.04477611940298507, 'neg': 0.0, 'verbs': 0.1044776119402985}
+  rating: 0,   lex pred: 0,   lex scores: {'pos': 0.0, 'neg': 0.0, 'verbs': 0.03225806451612903}
+  rating: 0,   lex pred: 0,   lex scores: {'pos': 0.0, 'neg': 0.0, 'verbs': 0.0}
+  rating: 1,   lex pred: 0,   lex scores: {'pos': 0.0, 'neg': 0.0, 'verbs': 0.020689655172413793}
+  rating: 1,   lex pred: 0,   lex scores: {'pos': 0.011904761904761904, 'neg': 0.0, 'verbs': 0.05952380952380952}
+  rating: 1,   lex pred: 1,   lex scores: {'pos': 0.10526315789473684, 'neg': 0.0, 'verbs': 0.0}
+  rating: 0,   lex pred: 0,   lex scores: {'pos': 0.01593625498007968, 'neg': 0.00298804780876494, 'verbs': 0.06573705179282868}
+  rating: 1,   lex pred: 0,   lex scores: {'pos': 0.010610079575596816, 'neg': 0.002652519893899204, 'verbs': 0.04509283819628647}
+  rating: 0,   lex pred: 1,   lex scores: {'pos': 0.01680672268907563, 'neg': 0.0, 'verbs': 0.06722689075630252}
+  rating: 1,   lex pred: 1,   lex scores: {'pos': 0.07142857142857142, 'neg': 0.0, 'verbs': 0.14285714285714285}
+  rating: 1,   lex pred: 0,   lex scores: {'pos': 0.014792899408284023, 'neg': 0.0029585798816568047, 'verbs': 0.05325443786982249}
+  rating: 1,   lex pred: 1,   lex scores: {'pos': 0.01834862385321101, 'neg': 0.0, 'verbs': 0.06422018348623854}
+  rating: 1,   lex pred: 1,   lex scores: {'pos': 0.01990049751243781, 'neg': 0.0, 'verbs': 0.0845771144278607}
+  rating: 1,   lex pred: 0,   lex scores: {'pos': 0.0, 'neg': 0.012048192771084338, 'verbs': 0.04819277108433735}
+  rating: 1,   lex pred: 1,   lex scores: {'pos': 0.05555555555555555, 'neg': 0.0, 'verbs': 0.1111111111111111}
+  rating: 1,   lex pred: 1,   lex scores: {'pos': 0.3333333333333333, 'neg': 0.0, 'verbs': 0.3333333333333333}
+  rating: 1,   lex pred: 1,   lex scores: {'pos': 1.0, 'neg': 0.0, 'verbs': 0.0}
+  rating: 1,   lex pred: 1,   lex scores: {'pos': 0.1, 'neg': 0.0, 'verbs': 0.05}
+  rating: 1,   lex pred: 0,   lex scores: {'pos': 0.0, 'neg': 0.0, 'verbs': 0.25}
+Lexicon Overall Accuracy:      0.618
+
+EXTRACTING FEATURES...
+Vocabulary Size: 2009
+Done.
+ Xtrain shape:  torch.Size([1899, 2009]) ,  ytrain shape:  torch.Size([1899, 1])
+
+Training Logistic Regression...
+  epoch: 0, loss: 0.69006
+  epoch: 20, loss: 0.35652
+  epoch: 40, loss: 0.30727
+  epoch: 60, loss: 0.27910
+  epoch: 80, loss: 0.25935
+  epoch: 100, loss: 0.24412
+  epoch: 120, loss: 0.23173
+  epoch: 140, loss: 0.22131
+  epoch: 160, loss: 0.21233
+  epoch: 180, loss: 0.20446
+  epoch: 200, loss: 0.19747
+  epoch: 220, loss: 0.19120
+  epoch: 240, loss: 0.18552
+  epoch: 260, loss: 0.18034
+  epoch: 280, loss: 0.17559
+Done.
+First 20 test set predictions:
+  rating: 0,   logreg pred: 1 (prob: 0.661),  lex pred: 1
+  rating: 0,   logreg pred: 1 (prob: 0.612),  lex pred: 1
+  rating: 0,   logreg pred: 1 (prob: 0.780),  lex pred: 1
+  rating: 0,   logreg pred: 1 (prob: 0.907),  lex pred: 0
+  rating: 1,   logreg pred: 1 (prob: 0.945),  lex pred: 0
+  rating: 1,   logreg pred: 1 (prob: 0.930),  lex pred: 1
+  rating: 0,   logreg pred: 1 (prob: 0.641),  lex pred: 0
+  rating: 1,   logreg pred: 1 (prob: 0.835),  lex pred: 1
+  rating: 0,   logreg pred: 0 (prob: 0.282),  lex pred: 0
+  rating: 1,   logreg pred: 1 (prob: 0.982),  lex pred: 1
+  rating: 1,   logreg pred: 1 (prob: 0.935),  lex pred: 0
+  rating: 1,   logreg pred: 1 (prob: 0.995),  lex pred: 1
+  rating: 1,   logreg pred: 0 (prob: 0.333),  lex pred: 0
+  rating: 0,   logreg pred: 0 (prob: 0.062),  lex pred: 1
+  rating: 1,   logreg pred: 1 (prob: 0.816),  lex pred: 1
+  rating: 1,   logreg pred: 1 (prob: 0.955),  lex pred: 0
+  rating: 1,   logreg pred: 1 (prob: 0.958),  lex pred: 0
+  rating: 1,   logreg pred: 1 (prob: 0.882),  lex pred: 0
+  rating: 1,   logreg pred: 1 (prob: 0.903),  lex pred: 1
+  rating: 1,   logreg pred: 1 (prob: 0.992),  lex pred: 1
+
+LogReg Model Test Set Accuracy: 0.893
+Lexicon Test Set Accuracy:      0.832

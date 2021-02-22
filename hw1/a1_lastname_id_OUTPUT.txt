@@ -1,3 +1,0 @@
-
-LOADING DATA...
-USAGE: python3 a1_lastname_id.py Magazine_Subscriptions_5.json.gz

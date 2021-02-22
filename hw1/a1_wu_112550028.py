@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn  #pytorch
 
 # Comment this line out if you wish to see results on the console
-#sys.stdout = open('a1_lastname_id_OUTPUT.txt', 'w') # EDIT THIS
+sys.stdout = open('a1_wu_112550028_OUTPUT.txt', 'w') # EDIT THIS
 
 #########################################################
 ## Part 1. Read and tokenize data.
