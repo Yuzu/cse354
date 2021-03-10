@@ -50,6 +50,7 @@ def readData(file):
             curcontext = curcontext.join(curline[2:]) # Anything beyond index 2 is the context.
 
             headIndex, curcontext = getTargetWord(curcontext)
+            head = curcontext.split(" ")[headIndex].split("/")[0] # properly determine the index of the head after punctuation is removed.
 
             # update word counts
             for word in curcontext.split(" "):
@@ -63,7 +64,12 @@ def readData(file):
             
             # Remove lemma and POS
             finalcontext = ''
+            i = 0
+            headfound = False
             for word in curcontext.split(" "):
+                if word.split("/")[0] == head:
+                    headIndex = i
+                    headfound = True
                 if word.split("/")[2] != "PUNCT":
                     finalcontext = finalcontext + " "
 
@@ -71,10 +77,11 @@ def readData(file):
                 if word.split("/")[2] == "PUNCT":
                     continue
                 finalcontext += word.split("/")[0]
+                if headfound is False:
+                    i += 1
 
             finalcontext = finalcontext.strip()
             
-
             # check lemma to properly classify as a tuple of (headIndex, finalContext).
             lemma = curline[0].split(".")[0]
             # if a list for this lemma does not exist, we need to make it.
@@ -85,30 +92,35 @@ def readData(file):
             data[lemma].append((headIndex, finalcontext))
         return data
 
-def createOneHots(contextTup: tuple, word):
-    context = contextTup[1]
+def createOneHots(contextTup: tuple, vocab):
+
     index = contextTup[0]
-    split = context.split(" ")
+    context = contextTup[1]
+    context = context.split(" ")
+    before = [0] * len(vocab)
+    if index != 0:
+        word = context[index - 1]
+        try:
+            vocabindex = vocab.index(word)
+            before[vocabindex] = 1
+        except ValueError:
+            return [0], [0]
 
-    before = [0] * len(split)
-    # avoid out of bounds array indexing. if the keyword is at index 0 or neg, can't look before. if in
-    if index > 0 and index < len(split) and split[index - 1] == word:
-        before[index - 1] = 1
-        before[index] = 1
-
-    after = [0] * len(split)
-    # if index is at the last valid index (len - 1), then can't look after.
-    if index + 1 < len(split) and split[index + 1]:
-        after[index + 1] = 1
-        after[index] = 1
+    after = [0] * len(vocab)
+    if index != len(context) - 1:
+        word = context[index + 1]
+        try:
+            vocabindex = vocab.index(word)
+            after[vocabindex] = 1
+        except ValueError:
+            return [0], [0]
     
     return before, after
-
 def main():
 
     data = readData(sys.argv[1])
     # debugging
-    debug = True
+    debug = False
     if debug:
         for part in data:
             print("{0}: ".format(part))
@@ -120,21 +132,21 @@ def main():
     if (len(data["counts"]) <= 2000):
         for lemma in data["lemmas"]:  # loop through all our lemmas
             for contextTup in data[lemma]: # loop through all the contexts for the current lemma
-                for word in data["counts"].keys: # for each word in our vocabulary, we want to create two one-hots.
-                    before, after = createOneHots(contextTup, word)
-                    #print(before)
-                    #print(after)
+                # for each context in our vocabulary, we want to create two one-hots with len(vocab) for before and after.
+                before, after = createOneHots(contextTup, data["counts"])
+                print(before)
+                print(after)
+                return
 
     else:
         countsSorted = sorted(data["counts"], key=data["counts"].get, reverse=True) # sort (we lose the counts in the process but that's fine)
+        countsSorted = countsSorted[:2000] # we only want the 2000 most frequent ones.
         for lemma in data["lemmas"]:  # loop through all our lemmas
             for contextTup in data[lemma]: # loop through all the contexts for the current lemma
-                for i in range(2000): # for each word in our vocabulary, we want to create two one-hots.
-                    word = countsSorted[i]
-                    before, after = createOneHots(contextTup, word)
-                    print(before)
-                    print(after)
-                    return
+                before, after = createOneHots(contextTup, countsSorted)
+                print(before)
+                print(after)
+                return
     
 
 if __name__ == '__main__':
