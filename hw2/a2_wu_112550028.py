@@ -41,11 +41,7 @@ def readData(file):
         for line in f.readlines():
             curline = line.split("\t")
             lineID = curline[0]
-            # Assign an integer to this sense if we haven't seen it yet.
-            sense = curline[1]
-            if sense not in data["senses"].keys():
-                data["senses"][sense] = sensecounter
-                sensecounter += 1
+
 
             curcontext = ''
             curcontext = curcontext.join(curline[2:]) # Anything beyond index 2 is the context.
@@ -85,12 +81,24 @@ def readData(file):
             
             # check lemma to properly classify as a tuple of (headIndex, finalContext).
             lemma = curline[0].split(".")[0]
+
+            # Assign an integer to this sense if we haven't seen it yet in the current lemma.
+            sense = curline[1]
+            if lemma not in data["senses"].keys():
+                data["senses"][lemma] = {}
+
+            if sense not in data["senses"][lemma].keys():
+                data["senses"][lemma][sense] = sensecounter % 6
+                sensecounter += 1
+
             # if a list for this lemma does not exist, we need to make it.
             if lemma not in data.keys():
                 data[lemma] = [] # create list for lemma
                 data["lemmas"].append(lemma) # also add it to the list of lemmas.
 
-            data[lemma].append((headIndex, finalcontext, data["senses"][sense], lineID))
+            data[lemma].append((headIndex, finalcontext, data["senses"][lemma][sense], lineID))
+
+            
         return data
 
 def createOneHots(contextTup: tuple, vocab):
@@ -151,11 +159,9 @@ def crossEntropyLoss(lemma, traindata, testdata):
         xTrain.append(combined)
         
         # append the corresponding sense that matches the current onehot for xtrain.
-        for sense in traindata["senses"].keys():
-            if traindata["senses"][sense] == contextTup[2]:
-                # we number our senses in increasing order regardless of lemma. 
-                # for instance, lemma a could take numbers 0-5, but lemma b would take numbers 6-11. we need to offset for this by doing mod 6.
-                yTrain.append(contextTup[2] % 6)
+        for sense in traindata["senses"][lemma].keys():
+            if traindata["senses"][lemma][sense] == contextTup[2]:
+                yTrain.append(contextTup[2])
                 break
         
     xTest = []
@@ -165,10 +171,9 @@ def crossEntropyLoss(lemma, traindata, testdata):
         combined = before + after
         xTest.append(combined)
 
-        for sense in testdata["senses"].keys():
-            if testdata["senses"][sense] == contextTup[2]:
-                # read above for context about mod 6.
-                yTest.append(contextTup[2] % 6)
+        for sense in testdata["senses"][lemma].keys():
+            if testdata["senses"][lemma][sense] == contextTup[2]:
+                yTest.append(contextTup[2])
                 break
                 
     # store in np array
@@ -194,7 +199,7 @@ def crossEntropyLoss(lemma, traindata, testdata):
     '''
 
     # cross entropy loss
-    learning_rate, epochs = 1.0, 300
+    learning_rate, epochs = 1.5, 400
     model = LogReg(list(xTrain.size())[1],6)
     sgd = torch.optim.SGD(model.parameters(), lr=learning_rate)
     loss = nn.CrossEntropyLoss()
@@ -212,8 +217,8 @@ def crossEntropyLoss(lemma, traindata, testdata):
         lossVal.backward()
         sgd.step()
 
-        #if i % 20 == 0:
-            #print("  epoch %d, loss %.5f" %(i, lossVal.item()))
+        if i % 20 == 0:
+            print("  epoch %d, loss %.5f" %(i, lossVal.item()))
     
     print("\nPredictions for {0}:".format(lemma))
 
@@ -262,7 +267,6 @@ def crossEntropyLoss(lemma, traindata, testdata):
             if testdata[lemma][i][3] == "language.NOUN.000014":
                 print("language.NOUN.000014 " + str(ytestpred_prob[i].data))
                 break
-    
 
 def main():
 
@@ -284,10 +288,10 @@ def main():
     # part 2
     countsSorted = sorted(traindata["counts"], key=traindata["counts"].get, reverse=True) # sort (we lose the counts in the process but that's fine)
     countsSorted = countsSorted[:2000] # we only want the 2000 most frequent ones.
+
     matrix = []
     # account for vocab smaller than 2000
     size = len(countsSorted)+1
-
     for i in range(size):
         matrix.append([0]*size)
     
@@ -299,6 +303,11 @@ def main():
                 for j in range(i, len(split)):
                     w2 = split[j] # col
 
+                    # The words are stored with their original capitalization in the data array, but in the frequencies,
+                    # they're stored as lowercase. to properly compare, we need to lowercase them.
+                    w1 = w1.lower()
+                    w2 = w2.lower()
+
                     try:
                         indexw1 = countsSorted.index(w1)
                     except ValueError:
@@ -309,21 +318,29 @@ def main():
                     except ValueError:
                         indexw2 = size - 1
 
+                    # make sure to not increment twice for these examples.
                     # [OOA][OOA]
                     if indexw1 == size - 1 and indexw2 == size - 1:
                         matrix[indexw1][indexw2] = matrix[indexw1][indexw2] + 1
                         continue
                     # diagonals
                     elif indexw1 == indexw2:
+                        matrix[indexw1][indexw2] = matrix[indexw1][indexw2] + 1
                         continue
                     matrix[indexw1][indexw2] = matrix[indexw1][indexw2] + 1
-                    matrix[indexw2][indexw1] = matrix[indexw2][indexw1] + 1 
+                    matrix[indexw2][indexw1] = matrix[indexw2][indexw1] + 1
 
+    #for row in matrix:
+        #print(row)
     matrix = torch.tensor(matrix, dtype=torch.double)
-    #print(matrix.mean(dim=1, keepdim=True))
-    #print(matrix.std(dim=1, keepdim=True))
+    print(matrix[:,size-2])
+    print(matrix.mean(dim=1, keepdim=True))
+    print()
+    print(matrix.std(dim=1, keepdim=True))
+    test = matrix - matrix.mean(dim=1, keepdim=True)
+    test2 = matrix / matrix.std(dim=1, keepdim=True, unbiased=False)
     matrix = (matrix - matrix.mean(dim=1, keepdim=True)) / matrix.std(dim=1, keepdim=True)
-
+    svd = torch.svd(matrix)
 
 if __name__ == '__main__':
     main()
