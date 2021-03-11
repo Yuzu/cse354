@@ -3,9 +3,10 @@
 # Assignment 2
 
 import torch
+from torch import nn
 import sys
 import re
-import numpy
+import numpy as np
 
 # my system locale's character encoding is different, hence the need to explicitly mention utf-8.
 sys.stdout = open('a2_wu_112550028.txt', 'w', encoding='utf-8') 
@@ -39,8 +40,8 @@ def readData(file):
     with open(file, mode="r", encoding='utf-8') as f:
         for line in f.readlines():
             curline = line.split("\t")
-
-            # Assign an integer to each sense
+            lineID = curline[0]
+            # Assign an integer to this sense if we haven't seen it yet.
             sense = curline[1]
             if sense not in data["senses"].keys():
                 data["senses"][sense] = sensecounter
@@ -89,7 +90,7 @@ def readData(file):
                 data[lemma] = [] # create list for lemma
                 data["lemmas"].append(lemma) # also add it to the list of lemmas.
 
-            data[lemma].append((headIndex, finalcontext))
+            data[lemma].append((headIndex, finalcontext, data["senses"][sense], lineID))
         return data
 
 def createOneHots(contextTup: tuple, vocab):
@@ -103,8 +104,8 @@ def createOneHots(contextTup: tuple, vocab):
         try:
             vocabindex = vocab.index(word)
             before[vocabindex] = 1
-        except ValueError:
-            return [0], [0]
+        except ValueError: # word not in the vocab, so just check after.
+            pass
 
     after = [0] * len(vocab)
     if index != len(context) - 1:
@@ -113,41 +114,211 @@ def createOneHots(contextTup: tuple, vocab):
             vocabindex = vocab.index(word)
             after[vocabindex] = 1
         except ValueError:
-            return [0], [0]
+            pass
     
     return before, after
+
+## The Logistic Regression Class (do not edit but worth studying)
+class LogReg(nn.Module):
+    def __init__(self, num_feats, num_labels, learn_rate = 0.01, device = torch.device("cpu") ):
+        #DONT EDIT
+        super(LogReg, self).__init__()
+        self.linear = nn.Linear(num_feats+1, num_labels) #add 1 to features for intercept
+
+    def forward(self, X):
+        #DONT EDIT
+        #This is where the model itself is defined.
+        #For logistic regression the model takes in X and returns
+        #a probability (a value between 0 and 1)
+
+        newX = torch.cat((X, torch.ones(X.shape[0], 1)), 1) #add intercept
+        return self.linear(newX) #logistic function on the linear output
+
+def crossEntropyLoss(lemma, traindata, testdata):
+
+    # for each context in each lemma, we wanna create 2 one-hots for every word.
+    countsSorted = sorted(traindata["counts"], key=traindata["counts"].get, reverse=True) # sort (we lose the counts in the process but that's fine)
+    countsSorted = countsSorted[:2000] # we only want the 2000 most frequent ones.
+
+    countsSortedTest = sorted(testdata["counts"], key=testdata["counts"].get, reverse=True)
+    countsSortedTest = countsSortedTest[:2000] # we only want the 2000 most frequent ones.
+
+    xTrain = []
+    yTrain = []
+    for contextTup in traindata[lemma]: # loop through all the contexts for the current lemma
+        before, after = createOneHots(contextTup, countsSorted)
+        combined = before + after
+        xTrain.append(combined)
+        
+        # append the corresponding sense that matches the current onehot for xtrain.
+        for sense in traindata["senses"].keys():
+            if traindata["senses"][sense] == contextTup[2]:
+                # we number our senses in increasing order regardless of lemma. 
+                # for instance, lemma a could take numbers 0-5, but lemma b would take numbers 6-11. we need to offset for this by doing mod 6.
+                yTrain.append(contextTup[2] % 6)
+                break
+        
+    xTest = []
+    yTest = []
+    for contextTup in testdata[lemma]:
+        before, after = createOneHots(contextTup, countsSortedTest)
+        combined = before + after
+        xTest.append(combined)
+
+        for sense in testdata["senses"].keys():
+            if testdata["senses"][sense] == contextTup[2]:
+                # read above for context about mod 6.
+                yTest.append(contextTup[2] % 6)
+                break
+                
+    # store in np array
+    xTrain = np.array(xTrain)
+    yTrain = np.array(yTrain)
+
+    xTest = np.array(xTest)
+    yTest = np.array(yTest)
+
+    # convert to tensor
+    xTrain = torch.from_numpy(xTrain.astype(np.float32))
+    yTrain = torch.from_numpy(yTrain.astype(np.int64)) # whole numbers
+
+    xTest = torch.from_numpy(xTest.astype(np.float32))
+    yTest = torch.from_numpy(yTest.astype(np.float32))
+
+    '''
+    xTrain = torch.tensor(xTrain)
+    yTrain = torch.tensor(yTrain)
+
+    xTest = torch.tensor(xTest)
+    yTest = torch.tensor(yTest)
+    '''
+
+    # cross entropy loss
+    learning_rate, epochs = 1.0, 300
+    model = LogReg(list(xTrain.size())[1],6)
+    sgd = torch.optim.SGD(model.parameters(), lr=learning_rate)
+    loss = nn.CrossEntropyLoss()
+
+    for i in range(epochs):
+        model.train()
+        sgd.zero_grad()
+        #forward pass
+        ypred = model(xTrain)
+        #print(ypred.shape)
+        #print(yTrain.min())
+        #print(yTrain.max())
+        lossVal = loss(ypred, yTrain)
+        # backwards
+        lossVal.backward()
+        sgd.step()
+
+        #if i % 20 == 0:
+            #print("  epoch %d, loss %.5f" %(i, lossVal.item()))
+    
+    print("\nPredictions for {0}:".format(lemma))
+
+    with torch.no_grad():
+        ytestpred_prob = model(xTest)
+        preds, inds = torch.max(ytestpred_prob, 1) # use this over the below approach since we want the highest in each tensor (which is the prediction)
+        #ytestpred_class = ytestpred_prob.round().type(torch.int8).numpy().T[0]
+        #ytestpred_prob = ytestpred_prob.numpy().T[0]
+        correct = 0
+        for i in range(yTest.shape[0]):
+            #print("  rating: %d,   logreg pred: %d" % (yTest[i], inds[i]))
+            if yTest[i] == inds[i]:
+                correct += 1
+        print("Correct: {0}/{1}".format(correct, yTest.shape[0]))
+    if lemma == "machine":
+
+        for i in range(len(testdata[lemma])):
+            if testdata[lemma][i][3] == "machine.NOUN.000004":
+                print("machine.NOUN.000004 " + str(ytestpred_prob[i].data))
+                break
+
+        for i in range(len(testdata[lemma])):
+            if testdata[lemma][i][3] == "machine.NOUN.000008":
+                print("machine.NOUN.000008 " + str(ytestpred_prob[i].data))
+                break
+            
+    elif lemma == "process":
+        for i in range(len(testdata[lemma])):
+            if testdata[lemma][i][3] == "process.NOUN.000018":
+                print("process.NOUN.000018 " + str(ytestpred_prob[i].data))
+                break
+
+        for i in range(len(testdata[lemma])):
+            if testdata[lemma][i][3] == "process.NOUN.000024":
+                print("process.NOUN.000024 " + str(ytestpred_prob[i].data))
+                break
+
+    elif lemma == "language":
+
+        for i in range(len(testdata[lemma])):
+            if testdata[lemma][i][3] == "language.NOUN.000008":
+                print("language.NOUN.000008 " + str(ytestpred_prob[i].data))
+                break
+
+        for i in range(len(testdata[lemma])):
+            if testdata[lemma][i][3] == "language.NOUN.000014":
+                print("language.NOUN.000014 " + str(ytestpred_prob[i].data))
+                break
+    
+
 def main():
 
-    data = readData(sys.argv[1])
+    traindata = readData(sys.argv[1]) # use to train (x)
+    testdata = readData(sys.argv[2]) # use to compare (y)
     # debugging
     debug = False
     if debug:
-        for part in data:
+        for part in traindata:
             print("{0}: ".format(part))
-            print(data[part])
+            print(traindata[part])
             print()
 
-    onehots = []
-    # for each context in each lemma, we wanna create 2 one-hots for every word.
-    if (len(data["counts"]) <= 2000):
-        for lemma in data["lemmas"]:  # loop through all our lemmas
-            for contextTup in data[lemma]: # loop through all the contexts for the current lemma
-                # for each context in our vocabulary, we want to create two one-hots with len(vocab) for before and after.
-                before, after = createOneHots(contextTup, data["counts"])
-                print(before)
-                print(after)
-                return
-
-    else:
-        countsSorted = sorted(data["counts"], key=data["counts"].get, reverse=True) # sort (we lose the counts in the process but that's fine)
-        countsSorted = countsSorted[:2000] # we only want the 2000 most frequent ones.
-        for lemma in data["lemmas"]:  # loop through all our lemmas
-            for contextTup in data[lemma]: # loop through all the contexts for the current lemma
-                before, after = createOneHots(contextTup, countsSorted)
-                print(before)
-                print(after)
-                return
+    # part 1
+    for lemma in traindata["lemmas"]:  # loop through all our lemmas
+       #crossEntropyLoss(lemma, traindata, testdata) # TODO - **************** COMMENT BACK ****************************************************************
+       pass
     
+    # part 2
+    countsSorted = sorted(traindata["counts"], key=traindata["counts"].get, reverse=True) # sort (we lose the counts in the process but that's fine)
+    countsSorted = countsSorted[:2000] # we only want the 2000 most frequent ones.
+    matrix = []
+    # account for vocab smaller than 2000
+    size = len(countsSorted)+1
+
+    for i in range(size):
+        matrix.append([0]*size)
+    
+    for lemma in traindata["lemmas"]: # loop through each lemma
+        for contextTup in traindata[lemma]: # loop through contexts
+            split = contextTup[1].split(" ")
+            for i in range(len(split)): # loop through words in a given context.
+                w1 = split[i] # row
+                for j in range(i, len(split)):
+                    w2 = split[j] # col
+
+                    try:
+                        indexw1 = countsSorted.index(w1)
+                    except ValueError:
+                        indexw1 = size - 1
+                    
+                    try:
+                        indexw2 = countsSorted.index(w2)
+                    except ValueError:
+                        indexw2 = size - 1
+                    
+                    if indexw1 == size - 1 and indexw2 == size - 1:
+                        matrix[indexw1][indexw2] = matrix[indexw1][indexw2] + 1
+                        continue
+                    elif indexw1 == indexw2:
+                        continue
+                    matrix[indexw1][indexw2] = matrix[indexw1][indexw2] + 1
+                    matrix[indexw2][indexw1] = matrix[indexw2][indexw1] + 1          
+    return
+
+
 
 if __name__ == '__main__':
     main()
