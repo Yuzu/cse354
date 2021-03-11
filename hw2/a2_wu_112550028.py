@@ -308,16 +308,21 @@ def main():
                         indexw2 = countsSorted.index(w2)
                     except ValueError:
                         indexw2 = size - 1
-                    
+
+                    # [OOA][OOA]
                     if indexw1 == size - 1 and indexw2 == size - 1:
                         matrix[indexw1][indexw2] = matrix[indexw1][indexw2] + 1
                         continue
+                    # diagonals
                     elif indexw1 == indexw2:
                         continue
                     matrix[indexw1][indexw2] = matrix[indexw1][indexw2] + 1
-                    matrix[indexw2][indexw1] = matrix[indexw2][indexw1] + 1          
-    return
+                    matrix[indexw2][indexw1] = matrix[indexw2][indexw1] + 1 
 
+    matrix = torch.tensor(matrix, dtype=torch.double)
+    #print(matrix.mean(dim=1, keepdim=True))
+    #print(matrix.std(dim=1, keepdim=True))
+    matrix = (matrix - matrix.mean(dim=1, keepdim=True)) / matrix.std(dim=1, keepdim=True)
 
 
 if __name__ == '__main__':
