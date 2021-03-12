@@ -142,64 +142,9 @@ class LogReg(nn.Module):
         newX = torch.cat((X, torch.ones(X.shape[0], 1)), 1) #add intercept
         return self.linear(newX) #logistic function on the linear output
 
-def crossEntropyLoss(lemma, traindata, testdata):
-
-    # for each context in each lemma, we wanna create 2 one-hots for every word.
-    countsSorted = sorted(traindata["counts"], key=traindata["counts"].get, reverse=True) # sort (we lose the counts in the process but that's fine)
-    countsSorted = countsSorted[:2000] # we only want the 2000 most frequent ones.
-
-    countsSortedTest = sorted(testdata["counts"], key=testdata["counts"].get, reverse=True)
-    countsSortedTest = countsSortedTest[:2000] # we only want the 2000 most frequent ones.
-
-    xTrain = []
-    yTrain = []
-    for contextTup in traindata[lemma]: # loop through all the contexts for the current lemma
-        before, after = createOneHots(contextTup, countsSorted)
-        combined = before + after
-        xTrain.append(combined)
-        
-        # append the corresponding sense that matches the current onehot for xtrain.
-        for sense in traindata["senses"][lemma].keys():
-            if traindata["senses"][lemma][sense] == contextTup[2]:
-                yTrain.append(contextTup[2])
-                break
-        
-    xTest = []
-    yTest = []
-    for contextTup in testdata[lemma]:
-        before, after = createOneHots(contextTup, countsSortedTest)
-        combined = before + after
-        xTest.append(combined)
-
-        for sense in testdata["senses"][lemma].keys():
-            if testdata["senses"][lemma][sense] == contextTup[2]:
-                yTest.append(contextTup[2])
-                break
-                
-    # store in np array
-    xTrain = np.array(xTrain)
-    yTrain = np.array(yTrain)
-
-    xTest = np.array(xTest)
-    yTest = np.array(yTest)
-
-    # convert to tensor
-    xTrain = torch.from_numpy(xTrain.astype(np.float32))
-    yTrain = torch.from_numpy(yTrain.astype(np.int64)) # whole numbers
-
-    xTest = torch.from_numpy(xTest.astype(np.float32))
-    yTest = torch.from_numpy(yTest.astype(np.int64))
-
-    '''
-    xTrain = torch.tensor(xTrain)
-    yTrain = torch.tensor(yTrain)
-
-    xTest = torch.tensor(xTest)
-    yTest = torch.tensor(yTest)
-    '''
-
+def crossEntropyLoss(lemma, traindata, testdata, xTrain, yTrain, xTest, yTest):
     # cross entropy loss
-    learning_rate, epochs = 1.5, 500
+    learning_rate, epochs = 1.5, 750
     model = LogReg(list(xTrain.size())[1],6) # xTrain.size()[1] should be 4000, with 6 classes.
     sgd = torch.optim.SGD(model.parameters(), lr=learning_rate)
     loss = nn.CrossEntropyLoss()
@@ -354,13 +299,67 @@ def main():
 
     # part 1
     for lemma in traindata["lemmas"]:  # loop through all our lemmas
-       #crossEntropyLoss(lemma, traindata, testdata) # TODO - **************** COMMENT BACK ****************************************************************
-       pass
+        # for each context in each lemma, we wanna create 2 one-hots for every word.
+        countsSorted = sorted(traindata["counts"], key=traindata["counts"].get, reverse=True) # sort (we lose the counts in the process but that's fine)
+        countsSorted = countsSorted[:2000] # we only want the 2000 most frequent ones.
+
+        countsSortedTest = sorted(testdata["counts"], key=testdata["counts"].get, reverse=True)
+        countsSortedTest = countsSortedTest[:2000] # we only want the 2000 most frequent ones.
+
+        xTrain = []
+        yTrain = []
+        for contextTup in traindata[lemma]: # loop through all the contexts for the current lemma
+            before, after = createOneHots(contextTup, countsSorted)
+            combined = before + after
+            xTrain.append(combined)
+
+            # append the corresponding sense that matches the current onehot for xtrain.
+            for sense in traindata["senses"][lemma].keys():
+                if traindata["senses"][lemma][sense] == contextTup[2]:
+                    yTrain.append(contextTup[2])
+                    break
+
+        xTest = []
+        yTest = []
+        for contextTup in testdata[lemma]:
+            before, after = createOneHots(contextTup, countsSortedTest)
+            combined = before + after
+            xTest.append(combined)
+
+            for sense in testdata["senses"][lemma].keys():
+                if testdata["senses"][lemma][sense] == contextTup[2]:
+                    yTest.append(contextTup[2])
+                    break
+            
+        # store in np array
+        xTrain = np.array(xTrain)
+        yTrain = np.array(yTrain)
+
+        xTest = np.array(xTest)
+        yTest = np.array(yTest)
+
+        # convert to tensor
+        xTrain = torch.from_numpy(xTrain.astype(np.float32))
+        yTrain = torch.from_numpy(yTrain.astype(np.int64)) # whole numbers
+
+        xTest = torch.from_numpy(xTest.astype(np.float32))
+        yTest = torch.from_numpy(yTest.astype(np.int64))
+
+        '''
+        xTrain = torch.tensor(xTrain)
+        yTrain = torch.tensor(yTrain)
+
+        xTest = torch.tensor(xTest)
+        yTest = torch.tensor(yTest)
+        '''
+        crossEntropyLoss(lemma, traindata, testdata, xTrain, yTrain, xTest, yTest) # TODO - **************** COMMENT BACK ****************************************************************
     
     # part 2
-    extractWordEmbeddings(traindata)
+    #extractWordEmbeddings(traindata)
 
     # part 3
-
+    # For each context, we'll have a vector of length 200
+    # by using the word embeddings we created (each len 50), we'll have [two words before] [one word before] _target_ [one word after] [two words after]
+    # using this smaller data set as xTrain, we keep everything else the same.
 if __name__ == '__main__':
     main()
