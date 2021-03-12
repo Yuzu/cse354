@@ -188,7 +188,7 @@ def crossEntropyLoss(lemma, traindata, testdata):
     yTrain = torch.from_numpy(yTrain.astype(np.int64)) # whole numbers
 
     xTest = torch.from_numpy(xTest.astype(np.float32))
-    yTest = torch.from_numpy(yTest.astype(np.float32))
+    yTest = torch.from_numpy(yTest.astype(np.int64))
 
     '''
     xTrain = torch.tensor(xTrain)
@@ -199,8 +199,8 @@ def crossEntropyLoss(lemma, traindata, testdata):
     '''
 
     # cross entropy loss
-    learning_rate, epochs = 1.5, 400
-    model = LogReg(list(xTrain.size())[1],6)
+    learning_rate, epochs = 1.5, 500
+    model = LogReg(list(xTrain.size())[1],6) # xTrain.size()[1] should be 4000, with 6 classes.
     sgd = torch.optim.SGD(model.parameters(), lr=learning_rate)
     loss = nn.CrossEntropyLoss()
 
@@ -268,29 +268,11 @@ def crossEntropyLoss(lemma, traindata, testdata):
                 print("language.NOUN.000014 " + str(ytestpred_prob[i].data))
                 break
 
-def main():
-
-    traindata = readData(sys.argv[1]) # use to train (x)
-    testdata = readData(sys.argv[2]) # use to compare (y)
-    # debugging
-    debug = False
-    if debug:
-        for part in traindata:
-            print("{0}: ".format(part))
-            print(traindata[part])
-            print()
-
-    # part 1
-    for lemma in traindata["lemmas"]:  # loop through all our lemmas
-       #crossEntropyLoss(lemma, traindata, testdata) # TODO - **************** COMMENT BACK ****************************************************************
-       pass
-    
-    # part 2
+def extractWordEmbeddings(traindata):
     countsSorted = sorted(traindata["counts"], key=traindata["counts"].get, reverse=True) # sort (we lose the counts in the process but that's fine)
     countsSorted = countsSorted[:2000] # we only want the 2000 most frequent ones.
 
     matrix = []
-    # account for vocab smaller than 2000
     size = len(countsSorted)+1
     for i in range(size):
         matrix.append([0]*size)
@@ -300,7 +282,7 @@ def main():
             split = contextTup[1].split(" ")
             for i in range(len(split)): # loop through words in a given context.
                 w1 = split[i] # row
-                for j in range(i, len(split)):
+                for j in range(i+1, len(split)):
                     w2 = split[j] # col
 
                     # The words are stored with their original capitalization in the data array, but in the frequencies,
@@ -318,29 +300,67 @@ def main():
                     except ValueError:
                         indexw2 = size - 1
 
-                    # make sure to not increment twice for these examples.
-                    # [OOA][OOA]
-                    if indexw1 == size - 1 and indexw2 == size - 1:
+                    # make sure to not increment twice here.
+                    # diagonals for co-occurrences
+                    if indexw1 == indexw2:
                         matrix[indexw1][indexw2] = matrix[indexw1][indexw2] + 1
                         continue
-                    # diagonals
-                    elif indexw1 == indexw2:
-                        matrix[indexw1][indexw2] = matrix[indexw1][indexw2] + 1
-                        continue
+
                     matrix[indexw1][indexw2] = matrix[indexw1][indexw2] + 1
                     matrix[indexw2][indexw1] = matrix[indexw2][indexw1] + 1
 
     #for row in matrix:
         #print(row)
     matrix = torch.tensor(matrix, dtype=torch.double)
-    print(matrix[:,size-2])
-    print(matrix.mean(dim=1, keepdim=True))
-    print()
-    print(matrix.std(dim=1, keepdim=True))
-    test = matrix - matrix.mean(dim=1, keepdim=True)
-    test2 = matrix / matrix.std(dim=1, keepdim=True, unbiased=False)
+    #print(matrix[:,size-2])
+    #print(matrix.mean(dim=1, keepdim=True))
+    #print()
+    #print(matrix.std(dim=1, keepdim=True))
     matrix = (matrix - matrix.mean(dim=1, keepdim=True)) / matrix.std(dim=1, keepdim=True)
-    svd = torch.svd(matrix)
+    u, s, v = torch.svd(matrix)
+    embeddings = {}
+    for i in range(size-1): # loop through all the words (rows) minus the OOV row.
+        word = countsSorted[i]
+        embeddings[word] = u[i][:50] # for each row take 50 columns
+
+    embeddings["OOV"] = u[size-1][:50]
+    # for embedding in embeddings.keys():
+        #print(str(embedding) + ": " + str(embeddings[embedding]))
+
+    
+    language_process = torch.dist(embeddings["language"], embeddings["process"])
+    print(language_process)
+    machine_process = torch.dist(embeddings["machine"], embeddings["process"])
+    print(machine_process)
+    language_speak = torch.dist(embeddings["language"], embeddings["speak"])
+    print(language_speak)
+    # student isn't in the vocab.
+    student_students = torch.dist(embeddings["OOV"], embeddings["students"])
+    print(student_students)
+    student_the = torch.dist(embeddings["OOV"], embeddings["the"])
+    print(student_the)
+
+def main():
+
+    traindata = readData(sys.argv[1]) # use to train
+    testdata = readData(sys.argv[2]) # use to compare
+    # debugging
+    debug = False
+    if debug:
+        for part in traindata:
+            print("{0}: ".format(part))
+            print(traindata[part])
+            print()
+
+    # part 1
+    for lemma in traindata["lemmas"]:  # loop through all our lemmas
+       #crossEntropyLoss(lemma, traindata, testdata) # TODO - **************** COMMENT BACK ****************************************************************
+       pass
+    
+    # part 2
+    extractWordEmbeddings(traindata)
+
+    # part 3
 
 if __name__ == '__main__':
     main()
