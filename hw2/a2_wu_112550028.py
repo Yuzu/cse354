@@ -52,9 +52,7 @@ def readData(file):
             # update word counts
             for word in curcontext.split(" "):
                 split = word.split("/")
-                if split[2] == "PUNCT":
-                    continue
-                elif split[0].lower() not in data["counts"]:
+                if split[0].lower() not in data["counts"]:
                     data["counts"][split[0].lower()] = 1
                 else:
                     data["counts"][split[0].lower()] = data["counts"][split[0].lower()] + 1
@@ -67,19 +65,14 @@ def readData(file):
                 if word.split("/")[0] == head:
                     headIndex = i
                     headfound = True
-                if word.split("/")[2] != "PUNCT":
-                    finalcontext = finalcontext + " "
 
-                # ignore punctuation
-                if word.split("/")[2] == "PUNCT":
-                    continue
-                finalcontext += word.split("/")[0]
+                finalcontext += word.split("/")[0] + " "
                 if headfound is False:
                     i += 1
 
             finalcontext = finalcontext.strip()
             
-            # check lemma to properly classify as a tuple of (headIndex, finalContext).
+            # check lemma to properly classify the tuple we're going to create.
             lemma = curline[0].split(".")[0]
 
             # Assign an integer to this sense if we haven't seen it yet in the current lemma.
@@ -92,6 +85,7 @@ def readData(file):
                 sensecounter += 1
 
             # if a list for this lemma does not exist, we need to make it.
+            # list of tuples that goes (headIndex, context, integer representation of the sense, unique context ID)
             if lemma not in data.keys():
                 data[lemma] = [] # create list for lemma
                 data["lemmas"].append(lemma) # also add it to the list of lemmas.
