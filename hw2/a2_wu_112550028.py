@@ -126,19 +126,13 @@ def createOneHots(contextTup: tuple, vocab):
     
     return before, after
 
-## The Logistic Regression Class (do not edit but worth studying)
 class LogReg(nn.Module):
-    def __init__(self, num_feats, num_labels, learn_rate = 0.01, device = torch.device("cpu") ):
+    def __init__(self, num_feats, num_labels, learn_rate = 1, device = torch.device("cpu") ):
         #DONT EDIT
         super(LogReg, self).__init__()
         self.linear = nn.Linear(num_feats+1, num_labels) #add 1 to features for intercept
 
     def forward(self, X):
-        #DONT EDIT
-        #This is where the model itself is defined.
-        #For logistic regression the model takes in X and returns
-        #a probability (a value between 0 and 1)
-
         newX = torch.cat((X, torch.ones(X.shape[0], 1)), 1) #add intercept
         return self.linear(newX) #logistic function on the linear output
 
@@ -154,9 +148,9 @@ def crossEntropyLoss(lemma, traindata, testdata, xTrain, yTrain, xTest, yTest):
         sgd.zero_grad()
         #forward pass
         ypred = model(xTrain)
-        #print(ypred.shape)
-        #print(yTrain.min())
-        #print(yTrain.max())
+        #print(ypred.shape) # [807,6]
+        #print(yTrain.min()) # 0
+        #print(yTrain.max()) # 5
         lossVal = loss(ypred, yTrain)
         # backwards
         lossVal.backward()
