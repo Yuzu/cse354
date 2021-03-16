@@ -125,10 +125,9 @@ class LogReg(nn.Module):
         newX = torch.cat((X, torch.ones(X.shape[0], 1)), 1) #add intercept
         return self.linear(newX) #logistic function on the linear output
 
-def runModel(lemma, traindata, testdata, xTrain, yTrain, xTest, yTest):
-    learning_rate, epochs = 1.5, 650
+def runModel(lemma, traindata, testdata, xTrain, yTrain, xTest, yTest, learning_rate = 1.5, epochs = 650, penalty=0):
     model = LogReg(list(xTrain.size())[1],6, learning_rate) # xTrain.size()[1] should be 4000, with 6 classes.
-    sgd = torch.optim.SGD(model.parameters(), lr=learning_rate)
+    sgd = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=penalty)
     loss = nn.CrossEntropyLoss()
 
     for i in range(epochs):
@@ -286,6 +285,71 @@ def extractWordEmbeddings(traindata):
     #print(torch.sum(embeddings["the"])) # tensor(-0.7341, dtype=torch.float64)
     return embeddings
 
+
+def featuresFromEmbeddings(contextTup, embeddings):
+    index = contextTup[0]
+    context = contextTup[1].split(" ")
+
+    feature = []
+
+    # **two before target word**
+    if index - 2 >= 0:
+        word = context[index - 2]
+        try:
+            toExtend = embeddings[word].tolist()
+        except KeyError: # Word not in our embeddings (not in top 2000)
+            toExtend = embeddings["OOV"].tolist()
+
+    # OOB index
+    else: 
+        toExtend = [0] * 50
+    feature.extend(toExtend)
+
+
+    # **one before target word**
+    if index - 1 >= 0:
+        word = context[index - 1]
+        try:
+            toExtend = embeddings[word].tolist()
+        except KeyError: # Word not in our embeddings (not in top 2000)
+            toExtend = embeddings["OOV"].tolist()
+
+    # OOB index
+    else: 
+        toExtend = [0] * 50
+    feature.extend(toExtend)
+
+
+    # **one after target word**
+    if index + 1 <= len(context) - 1:
+        word = context[index +1]
+        try:
+            toExtend = embeddings[word].tolist()
+        except KeyError: # Word not in our embeddings (not in top 2000)
+            toExtend = embeddings["OOV"].tolist()
+
+    # OOB index
+    else: 
+        toExtend = [0] * 50
+    feature.extend(toExtend)
+    
+
+    # **two after target word**
+    if index + 2 <= len(context) - 1:
+        word = context[index +2]
+        try:
+            toExtend = embeddings[word].tolist()
+        except KeyError: # Word not in our embeddings (not in top 2000)
+            toExtend = embeddings["OOV"].tolist()
+
+    # OOB index
+    else: 
+        toExtend = [0] * 50
+    feature.extend(toExtend)
+
+    return feature
+
+
 def main():
 
     traindata = readData(sys.argv[1]) # use to train
@@ -333,6 +397,7 @@ def main():
     print(ob.index(1))
     return
     '''
+    print("\nRUNNING PART 1\n")
     # part 1
     for lemma in traindata["lemmas"]:  # loop through all our lemmas
         #break # TODO - REMOVE HERE ****************************************
@@ -408,12 +473,42 @@ def main():
         '''
         runModel(lemma, traindata, testdata, xTrain, yTrain, xTest, yTest)
     
+    print("\nRUNNING PART 2\n")
     # part 2
-    #embeddings = extractWordEmbeddings(traindata)
+    embeddings = extractWordEmbeddings(traindata)
 
+    print("\nRUNNING PART 3\n")
     # part 3
     # For each context, we'll have a vector of length 200
     # by using the word embeddings we created (each len 50), we'll have [two words before] [one word before] _target_ [one word after] [two words after]
-    # using this smaller data set as xTrain, we keep everything else the same.
+    # y values remain the same, our x values change.
+    for lemma in traindata["lemmas"]:
+        xTrain = [] # 807 x 200 tensors (1 for each context, each with 4 word embeddings of len 50)
+        yTrain = [] # 807 true values
+        for contextTup in traindata[lemma]: # loop through all the contexts for the current lemma
+            xTrain.append(featuresFromEmbeddings(contextTup, embeddings))
+
+            # append the corresponding sense that matches the current onehot for xtrain.
+            sense = contextTup[2]
+            senseInt = traindata["senses"][lemma][sense]
+            yTrain.append(senseInt)
+        
+        xTest = [] # 202 x 200
+        yTest = [] # 202
+        for contextTup in testdata[lemma]:
+            xTest.append(featuresFromEmbeddings(contextTup, embeddings))
+
+            sense = contextTup[2]
+            senseInt = testdata["senses"][lemma][sense]
+            yTest.append(senseInt)
+        
+        xTrain = torch.tensor(xTrain, dtype=torch.float)
+        yTrain = torch.tensor(yTrain, dtype=torch.long)
+
+        xTest = torch.tensor(xTest, dtype=torch.float)
+        yTest = torch.tensor(yTest, dtype=torch.long)
+
+        runModel(lemma, traindata, testdata, xTrain, yTrain, xTest, yTest, 0.50, 650)
+
 if __name__ == '__main__':
     main()
