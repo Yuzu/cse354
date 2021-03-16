@@ -52,9 +52,7 @@ def readData(file):
             # update word counts
             for word in curcontext.split(" "):
                 split = word.split("/")
-                if split[2] == "PUNCT":
-                    continue
-                elif split[0].lower() not in data["counts"]:
+                if split[0].lower() not in data["counts"]:
                     data["counts"][split[0].lower()] = 1
                 else:
                     data["counts"][split[0].lower()] = data["counts"][split[0].lower()] + 1
@@ -67,19 +65,14 @@ def readData(file):
                 if word.split("/")[0] == head:
                     headIndex = i
                     headfound = True
-                if word.split("/")[2] != "PUNCT":
-                    finalcontext = finalcontext + " "
 
-                # ignore punctuation
-                if word.split("/")[2] == "PUNCT":
-                    continue
-                finalcontext += word.split("/")[0]
+                finalcontext += word.split("/")[0] + " "
                 if headfound is False:
                     i += 1
 
             finalcontext = finalcontext.strip()
             
-            # check lemma to properly classify as a tuple of (headIndex, finalContext).
+            # check lemma to properly classify the tuple we're going to create.
             lemma = curline[0].split(".")[0]
 
             # Assign an integer to this sense if we haven't seen it yet in the current lemma.
@@ -92,6 +85,7 @@ def readData(file):
                 sensecounter += 1
 
             # if a list for this lemma does not exist, we need to make it.
+            # list of tuples that goes (headIndex, context, integer representation of the sense, unique context ID)
             if lemma not in data.keys():
                 data[lemma] = [] # create list for lemma
                 data["lemmas"].append(lemma) # also add it to the list of lemmas.
@@ -136,8 +130,7 @@ class LogReg(nn.Module):
         newX = torch.cat((X, torch.ones(X.shape[0], 1)), 1) #add intercept
         return self.linear(newX) #logistic function on the linear output
 
-def crossEntropyLoss(lemma, traindata, testdata, xTrain, yTrain, xTest, yTest):
-    # cross entropy loss
+def runModel(lemma, traindata, testdata, xTrain, yTrain, xTest, yTest):
     learning_rate, epochs = 1, 650
     model = LogReg(list(xTrain.size())[1],6) # xTrain.size()[1] should be 4000, with 6 classes.
     sgd = torch.optim.SGD(model.parameters(), lr=learning_rate)
@@ -147,6 +140,12 @@ def crossEntropyLoss(lemma, traindata, testdata, xTrain, yTrain, xTest, yTest):
         model.train()
         sgd.zero_grad()
         #forward pass
+
+        #torch.set_printoptions(profile="full")
+        #print(yTrain)
+        #return
+        #sys.exit()
+        #print(xTrain[32] == xTrain[92])
         ypred = model(xTrain)
         #print(ypred.shape) # [807,6]
         #print(yTrain.min()) # 0
@@ -209,7 +208,8 @@ def crossEntropyLoss(lemma, traindata, testdata, xTrain, yTrain, xTest, yTest):
 def extractWordEmbeddings(traindata):
     countsSorted = sorted(traindata["counts"], key=traindata["counts"].get, reverse=True) # sort (we lose the counts in the process but that's fine)
     countsSorted = countsSorted[:2000] # we only want the 2000 most frequent ones.
-
+    #print (traindata["counts"]["students"])
+    #sys.exit()
     matrix = []
     size = len(countsSorted)+1
     for i in range(size):
@@ -240,21 +240,21 @@ def extractWordEmbeddings(traindata):
 
                     # make sure to not increment twice here.
                     # diagonals for co-occurrences
-                    if indexw1 == indexw2:
-                        matrix[indexw1][indexw2] = matrix[indexw1][indexw2] + 1
-                        continue
+                    #if indexw1 == indexw2:
+                        #matrix[indexw1][indexw2] = matrix[indexw1][indexw2] + 1
+                        #continue
 
                     matrix[indexw1][indexw2] = matrix[indexw1][indexw2] + 1
                     matrix[indexw2][indexw1] = matrix[indexw2][indexw1] + 1
 
     #for row in matrix:
         #print(row)
+    matrix = (matrix - np.mean(matrix, axis=1)) / np.std(matrix, axis=1)
     matrix = torch.tensor(matrix, dtype=torch.double)
     #print(matrix[:,size-2])
     #print(matrix.mean(dim=1, keepdim=True))
     #print()
     #print(matrix.std(dim=1, keepdim=True))
-    matrix = (matrix - matrix.mean(dim=1, keepdim=True)) / matrix.std(dim=1, keepdim=True)
     u, s, v = torch.svd(matrix)
     embeddings = {}
     for i in range(size-1): # loop through all the words (rows) minus the OOV row.
@@ -267,17 +267,29 @@ def extractWordEmbeddings(traindata):
 
     
     language_process = torch.dist(embeddings["language"], embeddings["process"])
+    print("('language', 'process') :", end="")
     print(language_process)
+
     machine_process = torch.dist(embeddings["machine"], embeddings["process"])
+    print("('machine', 'process') :", end="")
     print(machine_process)
+    
     language_speak = torch.dist(embeddings["language"], embeddings["speak"])
+    print("('language', 'speak') :", end="")
     print(language_speak)
+
     # student isn't in the vocab.
     student_students = torch.dist(embeddings["OOV"], embeddings["students"])
+    print("('student', 'students') :", end="")
     print(student_students)
+    
     student_the = torch.dist(embeddings["OOV"], embeddings["the"])
+    print("('student', 'the') :", end="")
     print(student_the)
 
+    #print(torch.sum(embeddings["students"])) # tensor(-0.0010, dtype=torch.float64)
+    #print(torch.sum(embeddings["the"])) # tensor(-0.7341, dtype=torch.float64)
+    
 def main():
 
     traindata = readData(sys.argv[1]) # use to train
@@ -291,22 +303,27 @@ def main():
             print(traindata[part])
             print()
 
+    # TODO - remove
+    extractWordEmbeddings(traindata)
+    sys.exit()
     # Create list of 2000 most frequent words.
     countsSorted = sorted(traindata["counts"], key=traindata["counts"].get, reverse=True) # sort (we lose the counts in the process but that's fine)
     countsSorted = countsSorted[:2000] # we only want the 2000 most frequent ones.
 
     countsSortedTest = sorted(testdata["counts"], key=testdata["counts"].get, reverse=True)
     countsSortedTest = countsSortedTest[:2000] # we only want the 2000 most frequent ones.
+
     '''
-    first = traindata["process"][0]
-    other = traindata["process"][5]
+    # confirm consistency in one-hots
+    first = traindata["process"][0] # "the process model"
+    other = traindata["process"][5] # "the process of"
     fb, fa = createOneHots(first, countsSorted)
     ob, oa = createOneHots(other, countsSorted)
     print(fb == ob)
     print(fb.index(1))
     print(ob.index(1))
+    return
     '''
- 
     # part 1
     for lemma in traindata["lemmas"]:  # loop through all our lemmas
 
@@ -328,14 +345,45 @@ def main():
             xTest.append(combined)
 
             yTest.append(contextTup[2])
-        
+        '''
+        # confirm the occurrence of 1s is betweeen [0, 2] - some words might not be in the vocab when creating the onehots
+        for value in xTrain:
+            if value.count(1) != 0 and value.count(1) != 1 and value.count(1) != 2:
+                raise ValueError
+        for value in xTest:
+            if value.count(1) != 0 and value.count(1) != 1 and value.count(1) != 2:
+                raise ValueError
+        '''
+
+        '''
+        print(xTrain[32]) # "a process to" = process.NOUN.000041
+        print(xTrain[91]) # "a process to" = process.NOUN.000115
+
+        print(xTrain[32][:2000].index(1))
+        print(xTrain[32][2000:].index(1))
+
+        print(xTrain[91][:2000].index(1))
+        print(xTrain[91][2000:].index(1))
+
+        print(xTrain[32] == xTrain[91])
+        print(countsSorted.index("a"))
+        print(countsSorted.index("to"))
+
+        sys.exit()
+        '''
         xTrain = torch.tensor(xTrain, dtype=torch.float)
         yTrain = torch.tensor(yTrain, dtype=torch.long)
 
         xTest = torch.tensor(xTest, dtype=torch.float)
         yTest = torch.tensor(yTest, dtype=torch.long)
-        
-        crossEntropyLoss(lemma, traindata, testdata, xTrain, yTrain, xTest, yTest)
+        '''
+        torch.set_printoptions(profile="full")
+        print(xTrain[32]) # "a process to" = process.NOUN.000041
+        print(xTrain[91]) # "a process to" = process.NOUN.000115
+        print(xTrain[32] == xTrain[91])
+        sys.exit()
+        '''
+        runModel(lemma, traindata, testdata, xTrain, yTrain, xTest, yTest)
     
     # part 2
     #extractWordEmbeddings(traindata)
