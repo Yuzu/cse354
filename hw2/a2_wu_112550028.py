@@ -204,8 +204,6 @@ def extractWordEmbeddings(traindata):
     countsSorted = countsSorted[:2000] # we only want the 2000 most frequent ones.
     countsSorted = [tup[0] for tup in countsSorted]
 
-    countsSorted[1999] = "student" # TRY NOT TO DO THIS
-
     #print(countsSorted.index("student"))
     #print(countsSorted)
     #print (traindata["counts"]["student"])
@@ -272,14 +270,13 @@ def extractWordEmbeddings(traindata):
     print("('language', 'speak') :", end="")
     print(language_speak)
 
-    # student isn't in the vocab.
-    student_students = torch.dist(embeddings["student"], embeddings["students"])
-    print("('student', 'students') :", end="")
-    print(student_students)
+    word_words = torch.dist(embeddings["word"], embeddings["words"])
+    print("('word', 'words') :", end="")
+    print(word_words)
     
-    student_the = torch.dist(embeddings["student"], embeddings["the"])
-    print("('student', 'the') :", end="")
-    print(student_the)
+    word_the = torch.dist(embeddings["word"], embeddings["the"])
+    print("('word', 'the') :", end="")
+    print(word_the)
 
     #print(torch.sum(embeddings["students"])) # tensor(-0.0010, dtype=torch.float64)
     #print(torch.sum(embeddings["the"])) # tensor(-0.7341, dtype=torch.float64)
