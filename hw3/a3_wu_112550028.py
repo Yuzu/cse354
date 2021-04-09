@@ -199,17 +199,112 @@ def extractTrigramCounts(contexts: list, vocab: list):
                 counts[(word1, word2)][word3] += 1
 
     return counts
+
+def calculateProbs(unigramCts, bigramCts, trigramCts, wordMinus1 , wordMinus2 = None):
+
+    vocabSize = len(unigramCts)
+    bigramProbs = {}
+
+    # set count to 1 for smoothing
+    if wordMinus1 not in bigramCts:
+        bigramCts[wordMinus1] = {}
+
+    for key in bigramCts[wordMinus1].keys():
+        # (c(i-1, i) + 1) / (c(i-1) + V)
+        bigramProbs[key] = (bigramCts[wordMinus1][key] + 1) / (unigramCts[wordMinus1] + vocabSize) 
+
+     # oov not originally in the bigram counts so we have to manually add it with one-smoothing.
+    if "<OOV>" not in bigramProbs:
+        bigramProbs["<OOV>"] =  (0 + 1) / (unigramCts[wordMinus1] + vocabSize)
+
+    # We need to create trigram probs since we're given 2 words.
+    trigramProbs = {}
+
+
+    if wordMinus2 != None:
+        if wordMinus2 not in bigramCts:
+            bigramCts[wordMinus2][wordMinus1] = 1
+
+        if (wordMinus2, wordMinus1) not in trigramCts:
+            trigramCts[(wordMinus2, wordMinus1)] = {}
+        
+        for key in trigramCts[(wordMinus2, wordMinus1)].keys():
+            # tri_prob = P(i given i-1 and i-2)
+            tri_prob = (trigramCts[(wordMinus2, wordMinus1)][key] + 1) / (bigramCts[wordMinus2][wordMinus1] + vocabSize)
+
+            # Interpolate the probability
+            trigramProbs[key] = (bigramProbs[key] + tri_prob) / 2
+
+        if "<OOV>" not in trigramProbs:
+            # trigramCts[(wordMinus1, wordMinus2)]["<OOV>"] is 0 hence why it was never initially added to the probs.
+            try:
+                tri_oov_prob = (0 + 1) / (bigramCts[wordMinus2][wordMinus1] + vocabSize)
+            except KeyError:
+                tri_oov_prob = (0 + 1) / (1 + vocabSize)
+            trigramProbs["<OOV>"] = (bigramProbs["<OOV>"] + tri_oov_prob) / 2
+
+        return trigramProbs
+    
+    # else the bigram probs will suffice.
+    else:
+        return bigramProbs
+
+# guaranteed at least one token ie len(words.split(" ")) >= 1.
+def generateLanguage(words, unigramCts, bigramCts, trigramCts):
+
+    output = []
+    max_len = 32
+    if len(words.split(" ")) == 1: # only given <s> so we need to determine another word first.
+        minus1_probs = calculateProbs(unigramCts, bigramCts, trigramCts, "<s>")
+
+        # renormalize probabilities
+        prob_sum = sum(minus1_probs.values())
+        for key in minus1_probs.keys():
+            minus1_probs[key] /= prob_sum
+
+        minus1 = np.random.choice([tup[0] for tup in minus1_probs.items()], p = [tup[1] for tup in minus1_probs.items()])
+        minus2 = "<s>"
+        output.extend([minus2, minus1])
+
+    else: # given at least 2 words to start with
+        output.extend(words.split(" "))
+        minus1 = output[len(output) - 1]
+        minus2 = output[len(output) - 2]
+
+    while (len(output) != 32):
+        word3_probs = calculateProbs(unigramCts, bigramCts, trigramCts, minus1, minus2)
+        if not word3_probs:
+            word3.append("</s>")
+            break
+
+        # renormalize probabilities
+        prob_sum = sum(word3_probs.values())
+
+        for key in word3_probs.keys():
+            word3_probs[key] /= prob_sum
+
+        word3 = np.random.choice([tup[0] for tup in word3_probs.items()], p = [tup[1] for tup in word3_probs.items()])
+
+        output.append(word3)
+        if word3 == "</s>":
+            break
+        
+        minus2 = minus1 # previous i-1 is now i-2 for the next iteration.
+        minus1 = word3 # new i-1 for the next iteration is the word we just created
+    
+    return " ".join(output)
+
 def main():
 
     data = readData(sys.argv[1]) # use to train
 
-    debug = False
+    debug = True
     if debug:
         for part in data:
             print("{0}: ".format(part))
             print(data[part])
             print()
-
+    sys.exit()
     # Create list of 5000 most frequent words.
     countsSorted = sorted(data["counts"].items(), key=lambda kv: (kv[1], kv[0]), reverse=True)
     countsSorted = countsSorted[:5000] # we only want the 5000 most frequent ones.
@@ -217,14 +312,15 @@ def main():
     vocab = [tup[0] for tup in countsSorted]
 
     unigram_counts = extractUnigramCounts(data["counts"], vocab)
-
+    
     bigram_counts = extractBigramCounts(data["contexts"], vocab)
-
+    #print(bigram_counts)
     trigram_counts = extractTrigramCounts(data["contexts"], vocab)
     #for key in trigram_counts.keys():
         #print(key)
         #print("\t" + str(trigram_counts[key]))
     
+    print("CHECKPOINT 2.2 - counts")
     print("UNIGRAMS:")
     try:
         print("language: " + str(unigram_counts["language"]))
@@ -239,7 +335,6 @@ def main():
     except KeyError:
         print("formal: 0")
     print("\n")
-
 
     print("BIGRAMS:")
     try:
@@ -256,20 +351,63 @@ def main():
         print("(to, process): 0")
     print("\n")
 
-
     print("TRIGRAMS:")
     try:
-        print("(specific, formal, languages: " + str(trigram_counts[("specific", "formal")]["languages"]))
+        print("(specific, formal, languages): " + str(trigram_counts[("specific", "formal")]["languages"]))
     except KeyError:
-        print("(specific, formal, languages: 0")
+        print("(specific, formal, languages): 0")
     try:
-        print("(to, process, <OOV>: " + str(trigram_counts[("to", "process")]["<OOV>"]))
+        print("(to, process, <OOV>): " + str(trigram_counts[("to", "process")]["<OOV>"]))
     except KeyError:
-        print("(to, process, <OOV>: 0")
+        print("(to, process, <OOV>): 0")
     try:
-        print("(specific, formal, event: " + str(trigram_counts[("specific", "formal")]["event"]))
+        print("(specific, formal, event): " + str(trigram_counts[("specific", "formal")]["event"]))
     except KeyError:
-        print("(specific, formal, event: 0")
+        print("(specific, formal, event): 0")
+    print("\n")
+
+    print("\n")
+    print("CHECKPOINT 2.3 - Probs with addone")
+
+    print("BIGRAMS:")
+    print("(the, language): " + str(calculateProbs(unigram_counts, bigram_counts, trigram_counts, "the")["language"]))
+    print("(<OOV>, language): " + str(calculateProbs(unigram_counts, bigram_counts, trigram_counts, "<OOV>")["language"]))
+    print("(to, process): " + str(calculateProbs(unigram_counts, bigram_counts, trigram_counts, "to")["process"]))
+    print("\n")
+
+    print("TRIGRAMS:")
+    print("(specific, formal, languages): " + str(calculateProbs(unigram_counts, bigram_counts, trigram_counts, "formal", "specific")["languages"]))
+    print("(to, process, <OOV>): " + str(calculateProbs(unigram_counts, bigram_counts, trigram_counts, "process", "to")["<OOV>"]))
+    try:
+        print("(specific, formal, event): " + str(calculateProbs(unigram_counts, bigram_counts, trigram_counts, "formal", "specific")["event"]))
+    except KeyError:
+        print("(specific, formal, event): Not valid Wi")
+    print("\n")
+
+    print("FINAL CHECKPOINT: GENERATED LANGUAGE")
+    print("PROMPT: <s>")
+    for i in range(3):
+        print(generateLanguage("<s>", unigram_counts, bigram_counts, trigram_counts))
+        print("\n")
+    print("\n")
+
+    print("PROMPT: <s> language is")
+    for i in range(3):
+        print(generateLanguage("<s> language is", unigram_counts, bigram_counts, trigram_counts))
+        print("\n")
+    print("\n")
+
+    print("PROMPT: <s> machines")
+    for i in range(3):
+        print(generateLanguage("<s> machines", unigram_counts, bigram_counts, trigram_counts))
+        print("\n")
+    print("\n")
+
+    print("PROMPT: <s> they want to process")
+    for i in range(3):
+        print(generateLanguage("<s> they want to process", unigram_counts, bigram_counts, trigram_counts))
+        print("\n")
+    print("\n")
 
 if __name__ == "__main__":
     main()
