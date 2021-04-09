@@ -254,23 +254,23 @@ def generateLanguage(words, unigramCts, bigramCts, trigramCts):
 
     output = []
     max_len = 32
-    if len(words.split(" ")) == 1: # only given <s> so we need to determine another word first.
+    if len(words.split(" ")) == 1: # only given <s> to determine the next word from.
         minus1_probs = calculateProbs(unigramCts, bigramCts, trigramCts, "<s>")
-
-        # renormalize probabilities
-        prob_sum = sum(minus1_probs.values())
-        for key in minus1_probs.keys():
-            minus1_probs[key] /= prob_sum
-
-        minus1 = np.random.choice([tup[0] for tup in minus1_probs.items()], p = [tup[1] for tup in minus1_probs.items()])
         minus2 = "<s>"
-        output.extend([minus2, minus1])
-
-    else: # given at least 2 words to start with
+        output.append(minus2)
+        
+    else: # given more words so we don't start with <s>
         output.extend(words.split(" "))
-        minus1 = output[len(output) - 1]
-        minus2 = output[len(output) - 2]
+        minus1_probs = calculateProbs(unigramCts, bigramCts, trigramCts, output[len(output) - 1]) # last word of given text is our first word.
+        minus2 = output[len(output) - 1]
 
+    # renormalize probabilities
+    prob_sum = sum(minus1_probs.values())
+    for key in minus1_probs.keys():
+        minus1_probs[key] /= prob_sum
+
+    minus1 = np.random.choice([tup[0] for tup in minus1_probs.items()], p = [tup[1] for tup in minus1_probs.items()])
+    output.append(minus1)
     while (len(output) != 32):
         word3_probs = calculateProbs(unigramCts, bigramCts, trigramCts, minus1, minus2)
         if not word3_probs:
@@ -298,13 +298,13 @@ def main():
 
     data = readData(sys.argv[1]) # use to train
 
-    debug = True
+    debug = False
     if debug:
         for part in data:
             print("{0}: ".format(part))
             print(data[part])
             print()
-    sys.exit()
+        sys.exit()
     # Create list of 5000 most frequent words.
     countsSorted = sorted(data["counts"].items(), key=lambda kv: (kv[1], kv[0]), reverse=True)
     countsSorted = countsSorted[:5000] # we only want the 5000 most frequent ones.
