@@ -1,0 +1,83 @@
+CHECKPOINT 2.2 - counts
+UNIGRAMS:
+language: 760
+the:3828
+formal:14
+
+
+BIGRAMS:
+(the, language): 74
+(<OOV>, language): 62
+(to, process): 6
+
+
+TRIGRAMS:
+(specific, formal, languages): 1
+(to, process, <OOV>): 0
+(specific, formal, event): 0
+
+
+
+
+CHECKPOINT 2.3 - Probs with addone
+BIGRAMS:
+(the, language): 0.008494733265375467
+(<OOV>, language): 0.005813953488372093
+(to, process): 0.001105670510187964
+
+
+TRIGRAMS:
+(specific, formal, languages): 0.0004990227239114324
+(to, process, <OOV>): 0.001602736876895671
+(specific, formal, event): Not valid Wi
+
+
+FINAL CHECKPOINT: GENERATED LANGUAGE
+PROMPT: <s>
+<s> some languages ) , <OOV> attributed <OOV> to remain active and machine tool industry authorized user networks . </s>
+
+
+<s> in the table form of records . </s>
+
+
+<s> the creative thought , made very poorly in the air force is gothic . </s>
+
+
+
+
+PROMPT: <s> language is
+<s> language is placed <OOV> built by the water organ in <OOV> lacked the loss or <OOV> malaysia , transistors <OOV> processes . </s>
+
+
+<s> language is placed at an afro-asiatic languages employ some special skill , california , moving beyond its vowel <OOV> confectionery , <OOV> studio in <OOV> : uk are of automated systems
+
+
+<s> language is through information because the unified modeling language ] <OOV> project management processes and wood where two <OOV> <OOV> , concepts ( <OOV> is governed by experts in <OOV> show
+
+
+
+
+PROMPT: <s> machines
+<s> machines per machine <OOV> printers are related anatolian languages spoken . </s>
+
+
+<s> machines and call <OOV> # 6 % <OOV> positioned in the man &amp; consumer reports . </s>
+
+
+<s> machines encouraged . </s>
+
+
+
+
+PROMPT: <s> they want to process
+<s> they want to process is not the amount <OOV> surrounding <OOV> mechanism for level is the boundaries . </s>
+
+
+<s> they want to process quality outputs <OOV> , more industrial &amp; id <OOV> bilingual terminology `` vinberg is refined by function is explicitly <OOV> . </s>
+
+
+<s> they want to process models especially when he , operational <OOV> under a decision made those machines that possibility of violence and furnaces , reinforcing <OOV> battle of music of man
+
+
+
+

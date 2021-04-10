@@ -9,7 +9,7 @@ import re
 import numpy as np
 
 # my system locale's character encoding is different, hence the need to explicitly mention utf-8.
-sys.stdout = open('a2_wu_112550028.txt', 'w', encoding='utf-8') 
+sys.stdout = open('a3_wu_112550028.txt', 'w', encoding='utf-8') 
 
 def getTargetWord(context):
     headMatch=re.compile(r'<head>([^<]+)</head>') #matches contents of head     
@@ -222,25 +222,31 @@ def calculateProbs(unigramCts, bigramCts, trigramCts, wordMinus1 , wordMinus2 = 
 
 
     if wordMinus2 != None:
-        if wordMinus2 not in bigramCts:
-            bigramCts[wordMinus2][wordMinus1] = 1
+        #if wordMinus2 not in bigramCts:
+            #bigramCts[wordMinus2][wordMinus1] = 1
 
-        if (wordMinus2, wordMinus1) not in trigramCts:
-            trigramCts[(wordMinus2, wordMinus1)] = {}
+        #if (wordMinus2, wordMinus1) not in trigramCts:
+            #trigramCts[(wordMinus2, wordMinus1)] = {}
         
-        for key in trigramCts[(wordMinus2, wordMinus1)].keys():
+        for key in bigramCts[wordMinus1].keys():
             # tri_prob = P(i given i-1 and i-2)
-            tri_prob = (trigramCts[(wordMinus2, wordMinus1)][key] + 1) / (bigramCts[wordMinus2][wordMinus1] + vocabSize)
+            try:
+                tri_w1_w2_w3 = trigramCts[(wordMinus2, wordMinus1)][key]
+            except KeyError:
+                tri_w1_w2_w3 = 1
+            try:
+                bi_w1_w2 = bigramCts[wordMinus2][wordMinus1]
+            except KeyError:
+                bi_w1_w2 = 1
+
+            tri_prob = (tri_w1_w2_w3 + 1) / (bi_w1_w2 + vocabSize)
 
             # Interpolate the probability
             trigramProbs[key] = (bigramProbs[key] + tri_prob) / 2
 
         if "<OOV>" not in trigramProbs:
             # trigramCts[(wordMinus1, wordMinus2)]["<OOV>"] is 0 hence why it was never initially added to the probs.
-            try:
-                tri_oov_prob = (0 + 1) / (bigramCts[wordMinus2][wordMinus1] + vocabSize)
-            except KeyError:
-                tri_oov_prob = (0 + 1) / (1 + vocabSize)
+            tri_oov_prob = (0 + 1) / (bi_w1_w2 + vocabSize)
             trigramProbs["<OOV>"] = (bigramProbs["<OOV>"] + tri_oov_prob) / 2
 
         return trigramProbs
@@ -258,19 +264,19 @@ def generateLanguage(words, unigramCts, bigramCts, trigramCts):
         minus1_probs = calculateProbs(unigramCts, bigramCts, trigramCts, "<s>")
         minus2 = "<s>"
         output.append(minus2)
+        # renormalize probabilities
+        prob_sum = sum(minus1_probs.values())
+        for key in minus1_probs.keys():
+            minus1_probs[key] /= prob_sum
+
+        minus1 = np.random.choice([tup[0] for tup in minus1_probs.items()], p = [tup[1] for tup in minus1_probs.items()])
+        output.append(minus1)
         
     else: # given more words so we don't start with <s>
         output.extend(words.split(" "))
-        minus1_probs = calculateProbs(unigramCts, bigramCts, trigramCts, output[len(output) - 1]) # last word of given text is our first word.
-        minus2 = output[len(output) - 1]
-
-    # renormalize probabilities
-    prob_sum = sum(minus1_probs.values())
-    for key in minus1_probs.keys():
-        minus1_probs[key] /= prob_sum
-
-    minus1 = np.random.choice([tup[0] for tup in minus1_probs.items()], p = [tup[1] for tup in minus1_probs.items()])
-    output.append(minus1)
+        minus1 = output[len(output) - 1]
+        minus2 = output[len(output) - 2]
+    
     while (len(output) != 32):
         word3_probs = calculateProbs(unigramCts, bigramCts, trigramCts, minus1, minus2)
         if not word3_probs:
@@ -319,7 +325,7 @@ def main():
     #for key in trigram_counts.keys():
         #print(key)
         #print("\t" + str(trigram_counts[key]))
-    
+
     print("CHECKPOINT 2.2 - counts")
     print("UNIGRAMS:")
     try:
