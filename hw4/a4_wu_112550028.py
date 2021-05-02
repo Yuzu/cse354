@@ -10,6 +10,7 @@ import torch
 from torch import nn
 from transformers import AutoTokenizer, AutoModelForMaskedLM
 from torch.nn.utils.rnn import pad_sequence
+import torch.nn as nn
 
 # my system locale's character encoding is different, hence the need to explicitly mention utf-8.
 sys.stdout = open('a4_wu_112550028.txt', 'w', encoding='utf-8')
@@ -31,67 +32,72 @@ def get_embed(word, embs):
 
 class GRU_RNN(nn.Module):
     
-    def __init__(self, inputLen, embeddingDimensions, hiddenStateDimensions, numTags):
+    def __init__(self, inputSize, hiddenSize, numLabels = 2):
         super(GRU_RNN, self).__init__()
 
-        self.inputLen = inputLen
-        self.embeddingDimensions = embeddingDimensions
-        self.hiddenStateDimensions = hiddenStateDimensions
-        self.numTags = numTags
-
-        
-        self.softmax = nn.LogSoftmax(dim=1)
-        self.embedding = nn.Embedding(inputLen, hiddenStateDimensions)
-        self.lstm = nn.LSTM(embeddingDimensions, hiddenStateDimensions)
-        self.classifier = nn.Linear(hiddenStateDimensions, numTags)
+        self.lstm = nn.LSTM(inputSize, hiddenSize)
+        self.linearClassifier = nn.Linear(hiddenSize, numLabels)
     
-    def forward(self, X, hiddenState):
-        h0 = 0
-        for i in range(1, len(X)):
-            h1 = nn.GRU(len(X), self.hiddenStateDimensions, self.embeddingDimensions)
-
-        newX = torch.cat((X, torch.ones(X.shape[0], 1)), 1) #add intercept
-        return newX, hiddenState #logistic function on the linear output
-    
-class LogReg(nn.Module):
-    def __init__(self, num_feats, num_labels, learn_rate, device = torch.device("cpu") ):
-        #DONT EDIT
-        super(LogReg, self).__init__()
-        self.linear = nn.Linear(num_feats+1, num_labels) #add 1 to features for intercept
-
     def forward(self, X):
-        newX = torch.cat((X, torch.ones(X.shape[0], 1)), 1) #add intercept
-        return self.linear(newX) #logistic function on the linear output
+        hiddenStates = []
+        for prompt in X:
+            s, _ = self.lstm(prompt.unsqueeze(1))
 
-def runModel(xTrain, yTrain, xTest, yTest, learning_rate = 1.5, epochs = 650, penalty=0):
-    model = LogReg(list(xTrain.size())[1],6, learning_rate) # xTrain.size()[1] should be 4000, with 6 classes.
+            hiddenStates.append(s[-1])
+        
+        hiddenStates = torch.stack(hiddenStates).squeeze(1)
+
+        hiddenStates = self.linearClassifier(hiddenStates)
+
+        probs = nn.functional.softmax(hiddenStates, dim=1)
+        return probs
+    
+
+def runModel(xTrain, yTrain, xTrial, yTrial, learning_rate = 1.5, epochs = 10, penalty=0):
+    model = GRU_RNN(50, 50, 2)
     sgd = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=penalty)
-    loss = nn.CrossEntropyLoss()
+    loss = nn.BCELoss()
 
     for i in range(epochs):
         model.train()
         sgd.zero_grad()
         #forward pass
 
-        #torch.set_printoptions(profile="full")
-        #print(yTrain)
-        #return
-        #sys.exit()
-        #print(xTrain[32] == xTrain[92])
         ypred = model(xTrain)
-        #print(ypred.shape) # [807,6]
-        #print(yTrain.min()) # 0
-        #print(yTrain.max()) # 5
         lossVal = loss(ypred, yTrain)
+
         # backwards
         lossVal.backward()
         sgd.step()
+    
+    print("PREDICTIONS:")
+    with torch.no_grad():
+        yTrial_probs = model(xTrial)
+        # T/F
+        correct = 0
+        for i in range(yTrial.shape[0]):
+            if yTrial[i][0] == 1:
+                # True
+                trueLabel = True
+            else:
+                trueLabel = False
+            
+            if yTrial_probs[i][0] > yTrial_probs[i][1]:
+                # true
+                predLabel = True
+            else:
+                predLabel = False
+            
+            if trueLabel == predLabel:
+                correct += 1
+        print("Correct: {0}/{1} = {2}".format(correct, yTrial.shape[0], correct/yTrial.shape[0]))
+
         
 def main():
 
     # 1.1
     trainData = extractData("music_QA_train.json")
-    #trialData = extractData("music_QA_dev.json")
+    trialData = extractData("music_QA_dev.json")
 
     # 1.2
     word_embs = api.load('glove-wiki-gigaword-50')
@@ -102,8 +108,12 @@ def main():
         record['question_toks'] = tokenize(record['question'], lowercase=True)
         record['passage_toks'] = tokenize(record['passage'], lowercase=True)
 
-    tokenEmbeddings = [] # len = amount of questions (419), of which are [len(passage), 50] size tensors
-    trueLabels = [] # tensor of size len = amt of questions (419) by 1, has t/f values.
+    for record in trialData:
+        record['question_toks'] = tokenize(record['question'], lowercase=True)
+        record['passage_toks'] = tokenize(record['passage'], lowercase=True)
+
+    xTrain = [] # len = amount of questions (419), of which are [len(passage), 50] size tensors
+    yTrain = [] # tensor of size len = amt of questions (419) by 1, has t/f values.
     for record in trainData:
         inputData = [get_embed(word, word_embs) for word in list(record['passage_toks']) + list(record['question_toks'])]
         '''
@@ -114,21 +124,32 @@ def main():
         print(len(list(record['question_toks'])))
         print(list(record['question_toks']))
         '''
-        tokenEmbeddings.append(torch.tensor(inputData))
-        trueLabels.append(record["label"])
-    biggest = 0
-    for tensor in tokenEmbeddings:
-        if tensor.size()[0] > biggest:
-            biggest = tensor.size()[0]
+        xTrain.append(torch.tensor(inputData))
+        if record["label"] == True:
+            yTrain.append(torch.tensor([1.0, 0.0]))
+        else:
+            yTrain.append(torch.tensor([0.0, 1.0]))
             
-    tokenEmbeddings = pad_sequence(tokenEmbeddings)
-    print(tokenEmbeddings.size())
-    trueLabels = torch.tensor(trueLabels)
+    #xTrain = pad_sequence(xTrain)
+    yTrain = torch.stack(yTrain)
+
+    xTest = []
+    yTest = []
+    for record in trialData:
+        inputData = [get_embed(word, word_embs) for word in list(record['passage_toks']) + list(record['question_toks'])]
+
+        xTest.append(torch.tensor(inputData))
+        if record["label"] == True:
+            yTest.append(torch.tensor([1.0, 0.0]))
+        else:
+            yTest.append(torch.tensor([0.0, 1.0]))
+
+    yTest = torch.stack(yTest)
+
     #1.3
-    runModel(tokenEmbeddings, trueLabels, None, None)
+    runModel(xTrain, yTrain, xTest, yTest)
 
     #1.4
-    print(tokenEmbeddings[0])
 
 
 
