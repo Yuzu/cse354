@@ -160,105 +160,97 @@ def main():
 
 
     #2.1
-    
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
     model =  AutoModelForSequenceClassification.from_pretrained("bert-base-uncased")
 
-    test = tokenizer("sentence one", "sentence two!")
+    datasetQuestion = {"train": [], "validation": [], "test": []}
+    datasetPassage = {"train": [], "validation": [], "test": []}
 
+    # compile all the questions to pass to the tokenizer later. we combine both train/validation strings so that we can properly pad it all at once.
+    batchQuestions = [] 
+    batchPassages = []
 
-    # mnli
-
-    tokenizedTrain = []
-    tokenizedTrial = []
-
-    tokenizedTrain_q = []
-    tokenizedTrain_p = []
-
-    tokenizedTrial_q = []
-    tokenizedTrial_p = []
-
-    # Taken from Hugging Face SQuAD Tutorial (BEGIN)
-
-    max_length = 384 # The maximum length of a feature (question and context)
-    doc_stride = 128 # The authorized overlap between two part of the context when splitting it is needed.
+    # Create "train"
+    trainLen = 0
     for record in trainData:
-        entry = {}
-        entry["input_ids"] =(tokenizer(record['question'], record['passage'],
-            max_length=max_length, truncation="only_second", return_overflowing_tokens=True, stride=doc_stride))
-        entry["idx"] = record["idx"]
-        entry["label"] = record["label"]
-        tokenizedTrain.append(entry)
+        entry = {} # create dict to eventually add to list of dicts.
+        #entry["idx"] = record["idx"]
+        if record["label"] == True:
+            entry["label"] = 1
+        else:
+            entry["label"] = 0
+        entry["sentence"] = record["question"]
 
+
+        batchQuestions.append(record["question"])
+
+        datasetQuestion["train"].append(entry)
+        trainLen += 1
+
+    # Create "validation"
     for record in trialData:
         entry = {}
-        entry["input_ids"] = (tokenizer(record['question'], record['passage'],
-            max_length=max_length, truncation="only_second", return_overflowing_tokens=True, stride=doc_stride))
-        entry["idx"] = record["idx"]
-        entry["label"] = record["label"]
-        tokenizedTrial.append(entry)
+        #entry["idx"] = record["idx"]
+        if record["label"] == True:
+            entry["label"] = 1
+        else:
+            entry["label"] = 0
+        entry["sentence"] = record["question"]
 
-    #for x in tokenizedTrain[5]["input_ids"][:2]:
-        #print(tokenizer.decode(x))
+        batchQuestions.append(record["question"])
 
-    #sequence_ids = tokenizedTrain[5].sequence_ids()
-    #print(sequence_ids)
+        datasetQuestion["validation"].append(entry)
 
-    # (END)
+    # Tokenize all the "question" fields
+    batch = tokenizer(batchQuestions, padding=True, truncation=True)
+    for i, input_id in enumerate(batch["input_ids"]):
+        if i < trainLen:
+            datasetQuestion["train"][i]["input_ids"] = input_id
+        else:
+            datasetQuestion["validation"][i % trainLen]["input_ids"] = input_id
 
-    for sequence in tokenizedTrain:
-        input_ids = sequence["input_ids"]
-        q = {}
-        p = {}
-
-        q["idx"] = sequence["idx"]
-        q["label"] = sequence["label"]
-        p["idx"] = sequence["idx"]
-        p["label"] = sequence["label"]
-
-        q["input_ids"] = []
-        p["input_ids"] = []
-
-        for i, i_id in enumerate(input_ids.sequence_ids()):
-            if i_id == None:
-                continue
-            elif i_id == 0:
-                #print(tokenizer.decode(sequence["input_ids"][:2][0][i]))
-                thing = input_ids["input_ids"][:2]
-                q["input_ids"].append(input_ids["input_ids"][:2][0][i])
-            else:
-                #print(tokenizer.decode(sequence["input_ids"][:2][0][i]))
-                p["input_ids"].append(input_ids["input_ids"][:2][0][i])
-        
-        tokenizedTrain_q.append(q)
-        tokenizedTrain_p.append(p)
+    for i, mask in enumerate(batch["attention_mask"]):
+        if i < trainLen:
+            datasetQuestion["train"][i]["attention_mask"] = mask
+        else:
+            datasetQuestion["validation"][i % trainLen]["attention_mask"] = mask
 
     args = TrainingArguments(
-        "test-glue",
+        "out",
         evaluation_strategy = "epoch",
         learning_rate=2e-5,
-        per_device_train_batch_size=16,
-        per_device_eval_batch_size=16,
+        per_device_train_batch_size=8,
+        per_device_eval_batch_size=8,
         num_train_epochs=5,
         weight_decay=0.01,
-        load_best_model_at_end=True,
-        metric_for_best_model="accuracy",
     )
-    
+
     trainer = Trainer(
         model,
         args,
-        train_dataset=tokenizedTrain_q,
-        eval_dataset=tokenizedTrain_q,
-        tokenizer=tokenizer,
-        compute_metrics=compute_metrics
+        train_dataset=datasetQuestion["train"],
+        eval_dataset=datasetQuestion["validation"]
     )
-
+    print("TRAINING QUESTIONS ONLY")
     trainer.train()
 
     trainer.evaluate()
 
-    print("a")
+    print("QUESTION ONLY PREDICTIONS:")
+    predictions = trainer.predict(datasetQuestion["validation"]).predictions
+    correct = 0
+    total = len(datasetQuestion["validation"])
+    for i, probs in enumerate(predictions):
+        if probs[0] < probs[1]:
+            guess = 1
+        else:
+            guess = 0
+        
+        if guess == datasetQuestion["validation"][i]["label"]:
+            correct += 1
+
+    #print(predictions)
+    print("Correct: {0}/{1} = {2}".format(correct, total, correct/total))
 
 if __name__ == "__main__":
     main()
